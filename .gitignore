@@ -1,0 +1,9 @@
+dist/
+build/
+deps/
+*.exe
+*.dll
+*.asi
+*.zip
+*.pdb
+__pycache__/

@@ -1,0 +1,100 @@
+diff --git a/include/RED4ext/GameEngine.hpp b/include/RED4ext/GameEngine.hpp
+index eeb32e54..14789bbc 100644
+--- a/include/RED4ext/GameEngine.hpp
++++ b/include/RED4ext/GameEngine.hpp
+@@ -222,6 +222,7 @@ struct CGameEngine : BaseGameEngine
+ 
+     static CGameEngine* Get();
+ 
++    uint8_t local25EngineExtension[0x40];
+     int64_t unk2F0;                       // 2F0
+     int64_t unk2F8;                       // 2F8
+     int32_t unk300;                       // 300
+@@ -236,8 +237,8 @@ struct CGameEngine : BaseGameEngine
+     int32_t unk340;                       // 340
+     int64_t unk348;                       // 348
+ };
+-RED4EXT_ASSERT_SIZE(CGameEngine, 0x350);
+-RED4EXT_ASSERT_OFFSET(CGameEngine, framework, 0x308);
++RED4EXT_ASSERT_SIZE(CGameEngine, 0x390);
++RED4EXT_ASSERT_OFFSET(CGameEngine, framework, 0x348);
+ } // namespace RED4ext
+ 
+ #ifdef RED4EXT_HEADER_ONLY
+diff --git a/include/RED4ext/Scripting/Functions.hpp b/include/RED4ext/Scripting/Functions.hpp
+index 2408f83e..8cffd082 100644
+--- a/include/RED4ext/Scripting/Functions.hpp
++++ b/include/RED4ext/Scripting/Functions.hpp
+@@ -85,7 +85,8 @@ struct CBaseFunction : IFunction
+     HashMap<uint64_t, void*> unk48; // 48
+     CCompiledCode bytecode;         // 78
+     Flags flags;                    // A8
+-    int32_t unkAC;                  // AC
++    int32_t unkAC;
++    uint8_t local25Extension[0x40];                  // AC
+ 
+ private:
+     using Handler_t = void (*)(ScriptInstance, RED4ext::CStackFrame&, void*, CBaseRTTIType*);
+@@ -94,7 +95,7 @@ private:
+     static Handler_t GetHandler(uint32_t aIndex);
+     bool ExecuteNative(CStack* aStack, CStackFrame& aFrame);
+ };
+-RED4EXT_ASSERT_SIZE(CBaseFunction, 0xB0);
++RED4EXT_ASSERT_SIZE(CBaseFunction, 0xF0);
+ RED4EXT_ASSERT_OFFSET(CBaseFunction, fullName, 0x08);
+ RED4EXT_ASSERT_OFFSET(CBaseFunction, bytecode, 0x78);
+ RED4EXT_ASSERT_OFFSET(CBaseFunction, flags, 0xA8);
+@@ -121,8 +122,8 @@ struct CGlobalFunction : CBaseFunction
+ 
+     uint32_t regIndex; // B0
+ };
+-RED4EXT_ASSERT_SIZE(CGlobalFunction, 0xB8);
+-RED4EXT_ASSERT_OFFSET(CGlobalFunction, regIndex, 0xB0);
++RED4EXT_ASSERT_SIZE(CGlobalFunction, 0xF8);
++RED4EXT_ASSERT_OFFSET(CGlobalFunction, regIndex, 0xF0);
+ 
+ struct CClassFunction : CBaseFunction
+ {
+@@ -148,9 +149,9 @@ struct CClassFunction : CBaseFunction
+     CClass* parent;    // B0
+     uint32_t regIndex; // B8
+ };
+-RED4EXT_ASSERT_SIZE(CClassFunction, 0xC0);
+-RED4EXT_ASSERT_OFFSET(CClassFunction, parent, 0xB0);
+-RED4EXT_ASSERT_OFFSET(CClassFunction, regIndex, 0xB8);
++RED4EXT_ASSERT_SIZE(CClassFunction, 0x100);
++RED4EXT_ASSERT_OFFSET(CClassFunction, parent, 0xF0);
++RED4EXT_ASSERT_OFFSET(CClassFunction, regIndex, 0xF8);
+ 
+ struct CClassStaticFunction : CClassFunction
+ {
+@@ -174,14 +175,14 @@ struct CClassStaticFunction : CClassFunction
+         return memory;
+     }
+ };
+-RED4EXT_ASSERT_SIZE(CClassStaticFunction, 0xC0);
++RED4EXT_ASSERT_SIZE(CClassStaticFunction, 0x100);
+ 
+ struct CScriptedFunction : CBaseFunction
+ {
+     CClass* parent; // B0
+ };
+-RED4EXT_ASSERT_SIZE(CScriptedFunction, 0xB8);
+-RED4EXT_ASSERT_OFFSET(CScriptedFunction, parent, 0xB0);
++RED4EXT_ASSERT_SIZE(CScriptedFunction, 0xF8);
++RED4EXT_ASSERT_OFFSET(CScriptedFunction, parent, 0xF0);
+ } // namespace RED4ext
+ 
+ #ifdef RED4EXT_HEADER_ONLY
+diff --git a/include/RED4ext/Scripting/Utils-inl.hpp b/include/RED4ext/Scripting/Utils-inl.hpp
+index d63ea44c..d3c36542 100644
+--- a/include/RED4ext/Scripting/Utils-inl.hpp
++++ b/include/RED4ext/Scripting/Utils-inl.hpp
+@@ -52,6 +52,7 @@ RED4EXT_INLINE bool RED4ext::ExecuteFunction(ScriptInstance aInstance, CBaseFunc
+ RED4EXT_INLINE bool RED4ext::ExecuteFunction(CClass* aContext, CBaseFunction* aFunc, void* aOut, StackArgs_t& aArgs)
+ {
+     auto engine = CGameEngine::Get();
++    if (!engine || !engine->framework || !engine->framework->gameInstance) return false;
+     auto gameInstance = engine->framework->gameInstance;
+ 
+     Handle<IScriptable> instance(gameInstance->GetSystem(aContext));

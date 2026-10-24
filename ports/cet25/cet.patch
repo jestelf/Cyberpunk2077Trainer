@@ -1,0 +1,329 @@
+diff --git a/src/Options.cpp b/src/Options.cpp
+index 14dec37..b06e39a 100644
+--- a/src/Options.cpp
++++ b/src/Options.cpp
+@@ -184,7 +184,7 @@ Options::Options(Paths& aPaths)
+         Log::Info("Cyber Engine Tweaks path: \"{}\"", UTF16ToUTF8(aPaths.CETRoot().native()));
+         Log::Info("Lua scripts search path: \"{}\"", UTF16ToUTF8(aPaths.ModsRoot().native()));
+ 
+-        if (GameImage.FileVersion != RED4EXT_RUNTIME_LATEST)
++        if (!CETLocal25::IsVerifiedBuild())
+         {
+             const auto [smajor, sminor] = Image::GetSupportedVersion();
+             Log::Error("Unsupported game version! Only {}.{:02d} is supported.", smajor, sminor);
+@@ -198,5 +198,7 @@ Options::Options(Paths& aPaths)
+     }
+ 
+     Load();
++    if (CETLocal25::IsVerifiedBuild())
++        Log::Warn("CET LOCAL 2.5 experimental port, Steam build 26101278; gameplay compatibility unverified");
+     Save();
+ }
+diff --git a/src/d3d12/D3D12_Hooks.cpp b/src/d3d12/D3D12_Hooks.cpp
+index 280d35e..172871a 100644
+--- a/src/d3d12/D3D12_Hooks.cpp
++++ b/src/d3d12/D3D12_Hooks.cpp
+@@ -13,7 +13,8 @@ void* D3D12::CRenderNode_Present_InternalPresent(int32_t* apDeviceIndex, uint8_t
+     auto& d3d12 = CET::Get().GetD3D12();
+ 
+     const auto* pContext = RenderContext::GetInstance();
+-    auto* pSwapChain = pContext->devices[*apDeviceIndex - 1].pSwapChain;
++    auto* pSwapChain = pContext && apDeviceIndex ? pContext->GetSwapChain(*apDeviceIndex) : nullptr;
++    if (!pSwapChain) return d3d12.m_realInternalPresent(apDeviceIndex, aSomeSync, aSyncInterval);
+     if (d3d12.m_initialized)
+         d3d12.Update();
+     else
+@@ -23,7 +24,8 @@ void* D3D12::CRenderNode_Present_InternalPresent(int32_t* apDeviceIndex, uint8_t
+         //       DX12 does not work on Windows 8 and 8.1 so we should be safe with this check
+         if (IsWindows8OrGreater())
+         {
+-            d3d12.m_pCommandQueue = pContext->pDirectQueue;
++            d3d12.m_pCommandQueue = pContext->GetDirectQueue();
++            if (!d3d12.m_pCommandQueue) return d3d12.m_realInternalPresent(apDeviceIndex, aSomeSync, aSyncInterval);
+             d3d12.m_pdxgiSwapChain = pSwapChain;
+             d3d12.Initialize();
+         }
+diff --git a/src/reverse/RTTIExtender.cpp b/src/reverse/RTTIExtender.cpp
+index 3a2f4fd..9d012a3 100644
+--- a/src/reverse/RTTIExtender.cpp
++++ b/src/reverse/RTTIExtender.cpp
+@@ -1,4 +1,5 @@
+ #include "RTTIExtender.h"
++#include "Local25GameInstance.h"
+ 
+ #include <RED4ext/Scripting/Natives/Generated/Transform.hpp>
+ #include <RED4ext/Scripting/Natives/Generated/WorldTransform.hpp>
+@@ -290,7 +291,8 @@ void CreateSingleton(const RED4ext::Handle<RED4ext::IScriptable>& apClassInstanc
+ {
+     auto* pRTTI = RED4ext::CRTTISystem::Get();
+     auto* pType = apClassInstance->GetNativeType();
+-    auto* pGameInstance = RED4ext::CGameEngine::Get()->framework->gameInstance;
++    auto* pGameInstance = CETLocal25::TryGetGameInstance();
++    if (!pGameInstance) return;
+     if (pGameInstance->GetSystem(pType) != nullptr)
+         return; // already init
+ 
+@@ -328,7 +330,8 @@ void CreateSingleton(const RED4ext::CName acTypeName)
+ {
+     auto* pRTTI = RED4ext::CRTTISystem::Get();
+     auto* pType = pRTTI->GetClass(acTypeName);
+-    auto* pGameInstance = RED4ext::CGameEngine::Get()->framework->gameInstance;
++    auto* pGameInstance = CETLocal25::TryGetGameInstance();
++    if (!pGameInstance) return;
+     if (pGameInstance->GetSystem(pType) != nullptr)
+         return; // already init
+ 
+@@ -361,7 +364,8 @@ void WorldFunctionalTests_SpawnEntity(RED4ext::IScriptable*, RED4ext::CStackFram
+     apFrame->code++; // skip ParamEnd
+ 
+     auto* pRTTI = RED4ext::CRTTISystem::Get();
+-    auto* pGameInstance = RED4ext::CGameEngine::Get()->framework->gameInstance;
++    auto* pGameInstance = CETLocal25::TryGetGameInstance();
++    if (!pGameInstance) return;
+     auto* pFunctionalType = pRTTI->GetType("FunctionalTestsGameSystem");
+     auto* pFunctionalSystem = reinterpret_cast<FunctionalTestsGameSystem*>(pGameInstance->GetSystem(pFunctionalType));
+     uint32_t oldSize = pFunctionalSystem->spawner.pendingEntities.size;
+@@ -489,7 +493,8 @@ public:
+     {
+         auto* pRTTI = RED4ext::CRTTISystem::Get();
+         auto* pSystemType = pRTTI->GetClass(NATIVE_TYPE);
+-        auto* pGameInstance = RED4ext::CGameEngine::Get()->framework->gameInstance;
++        auto* pGameInstance = CETLocal25::TryGetGameInstance();
++    if (!pGameInstance) return;
+ 
+         if (pGameInstance->GetSystem(pSystemType))
+             return; // already init
+@@ -677,7 +682,8 @@ void RTTIExtender::InitializeSingletons()
+         };
+         RED4EXT_ASSERT_OFFSET(WorldFunctionalTests, unk40, 0x40);
+ 
+-        auto* pGameInstance = RED4ext::CGameEngine::Get()->framework->gameInstance;
++        auto* pGameInstance = CETLocal25::TryGetGameInstance();
++    if (!pGameInstance) return;
+         auto* pWorld = reinterpret_cast<WorldFunctionalTests*>(pGameInstance->GetSystem(pClass));
+ 
+         // whatever this is, it's only used to get gameInstance
+diff --git a/src/reverse/RTTIHelper.cpp b/src/reverse/RTTIHelper.cpp
+index 1aef4b2..44a427b 100644
+--- a/src/reverse/RTTIHelper.cpp
++++ b/src/reverse/RTTIHelper.cpp
+@@ -1,6 +1,7 @@
+ #include <stdafx.h>
+ 
+ #include "RTTIHelper.h"
++#include "Local25GameInstance.h"
+ 
+ #include "ClassReference.h"
+ #include "StrongReference.h"
+@@ -656,9 +657,9 @@ sol::variadic_results RTTIHelper::ExecuteFunction(
+ 
+         if (cpParam->type == m_pGameInstanceType)
+         {
+-            const auto* cpEngine = RED4ext::CGameEngine::Get();
++            auto* currentInstance = CETLocal25::TryGetGameInstance();
+ 
+-            if (!cpEngine || !cpEngine->framework)
++            if (!currentInstance)
+             {
+                 aErrorMessage = fmt::format("Function '{}' can't be used yet because game instance is not ready.", apFunc->shortName.ToString());
+ 
+@@ -666,6 +667,7 @@ sol::variadic_results RTTIHelper::ExecuteFunction(
+             }
+ 
+             static RED4ext::ScriptGameInstance s_gameInstance;
++            s_gameInstance.instance = currentInstance;
+ 
+             callArgs[callArgOffset].type = m_pGameInstanceType;
+             callArgs[callArgOffset].value = &s_gameInstance;
+diff --git a/src/reverse/Relocation.h b/src/reverse/Relocation.h
+index 865d8ba..00e7449 100644
+--- a/src/reverse/Relocation.h
++++ b/src/reverse/Relocation.h
+@@ -8,12 +8,19 @@
+ 
+ #include <RED4ext/Common.hpp>
+ #include <RED4ext/Detail/Memory.hpp>
++#include "Local25Build.h"
+ 
+ template<>
+ struct RED4ext::Detail::AddressResolverOverride<uint32_t> : std::true_type
+ {
+     inline static uintptr_t Resolve(uint32_t aHash)
+     {
++        if (CETLocal25::IsVerifiedBuild())
++        {
++            const auto address = CETLocal25::Resolve(aHash);
++            if (!address) throw std::runtime_error("CET local 2.5: unverified address hash " + std::to_string(aHash));
++            return address;
++        }
+         using functionType = void* (*)(uint32_t);
+         static functionType resolveFunc = nullptr;
+ 
+diff --git a/src/reverse/RenderContext.cpp b/src/reverse/RenderContext.cpp
+index 5412dbd..0709bb1 100644
+--- a/src/reverse/RenderContext.cpp
++++ b/src/reverse/RenderContext.cpp
+@@ -8,3 +8,17 @@ RenderContext* RenderContext::GetInstance() noexcept
+     static RED4ext::UniversalRelocPtr<RenderContext*> s_instance(CyberEngineTweaks::AddressHashes::CRenderGlobal_InstanceOffset);
+     return *s_instance.GetAddr();
+ }
++
++IDXGISwapChain4* RenderContext::GetSwapChain(int32_t index) const noexcept
++{
++    if (index < 1 || index > 0x20) return nullptr;
++    const size_t start = CETLocal25::IsVerifiedBuild() ? 0xCEBF48 : 0xC97F38;
++    const auto offset = start + static_cast<size_t>(index - 1) * 0xB0;
++    return *reinterpret_cast<IDXGISwapChain4* const*>(reinterpret_cast<const uint8_t*>(this) + offset);
++}
++
++ID3D12CommandQueue* RenderContext::GetDirectQueue() const noexcept
++{
++    const size_t offset = CETLocal25::IsVerifiedBuild() ? 0x14104D0 : 0x13BC4D0;
++    return *reinterpret_cast<ID3D12CommandQueue* const*>(reinterpret_cast<const uint8_t*>(this) + offset);
++}
+diff --git a/src/reverse/RenderContext.h b/src/reverse/RenderContext.h
+index 6699c40..0db661e 100644
+--- a/src/reverse/RenderContext.h
++++ b/src/reverse/RenderContext.h
+@@ -12,6 +12,8 @@ struct RenderContext
+     ~RenderContext() = delete;
+ 
+     static RenderContext* GetInstance() noexcept;
++    IDXGISwapChain4* GetSwapChain(int32_t index) const noexcept;
++    ID3D12CommandQueue* GetDirectQueue() const noexcept;
+ 
+     uint8_t pad0[0xC97F38];
+     Device devices[0x30]; // Count unknown, it is at least 0x20
+@@ -21,4 +23,4 @@ struct RenderContext
+ 
+ static_assert(sizeof(RenderContext::Device) == 0xB0);
+ static_assert(offsetof(RenderContext, devices) == 0xC97F38);
+-static_assert(offsetof(RenderContext, pDirectQueue) == 0x13BC4D0);
+\ No newline at end of file
++static_assert(offsetof(RenderContext, pDirectQueue) == 0x13BC4D0);
+diff --git a/src/reverse/SingletonReference.cpp b/src/reverse/SingletonReference.cpp
+index 2a6a871..7f898da 100644
+--- a/src/reverse/SingletonReference.cpp
++++ b/src/reverse/SingletonReference.cpp
+@@ -1,6 +1,7 @@
+ #include <stdafx.h>
+ 
+ #include "SingletonReference.h"
++#include "Local25GameInstance.h"
+ 
+ SingletonReference::SingletonReference(const TiltedPhoques::Lockable<sol::state, std::recursive_mutex>::Ref& aView, RED4ext::CBaseRTTIType* apClass)
+     : ClassType(aView, apClass)
+@@ -11,8 +12,8 @@ SingletonReference::~SingletonReference() = default;
+ 
+ RED4ext::ScriptInstance SingletonReference::GetHandle() const
+ {
+-    const auto* engine = RED4ext::CGameEngine::Get();
+-    auto* pGameInstance = engine->framework->gameInstance;
++    auto* pGameInstance = CETLocal25::TryGetGameInstance();
++    if (!pGameInstance) return nullptr;
+ 
+     return pGameInstance->GetSystem(m_pType);
+ }
+diff --git a/src/scripting/LuaVM.cpp b/src/scripting/LuaVM.cpp
+index 7b9265a..4f84a68 100644
+--- a/src/scripting/LuaVM.cpp
++++ b/src/scripting/LuaVM.cpp
+@@ -3,6 +3,7 @@
+ #include "LuaVM.h"
+ 
+ #include <CET.h>
++#include "reverse/Local25GameInstance.h"
+ 
+ const VKBind* LuaVM::GetBind(const VKModBind& acModBind) const
+ {
+@@ -32,6 +33,7 @@ bool LuaVM::ExecuteLua(const std::string& acCommand) const
+ 
+ void LuaVM::Update(float aDeltaTime)
+ {
++    if (!m_initialized && m_postInitPending) PostInitializeMods();
+     if (!m_initialized)
+         return;
+ 
+@@ -194,7 +196,14 @@ void LuaVM::PostInitializeTweakDB()
+ 
+ void LuaVM::PostInitializeMods()
+ {
+-    assert(!m_initialized);
++    if (m_initialized) return;
++    if (!CETLocal25::TryGetGameInstance())
++    {
++        if (!m_postInitPending) Log::Warn("CET local 2.5: deferring mod initialization until GameInstance is ready");
++        m_postInitPending = true;
++        return;
++    }
++    m_postInitPending = false;
+ 
+     m_scripting.PostInitializeMods();
+ 
+diff --git a/src/scripting/LuaVM.h b/src/scripting/LuaVM.h
+index 8c62df3..999f0fe 100644
+--- a/src/scripting/LuaVM.h
++++ b/src/scripting/LuaVM.h
+@@ -13,6 +13,7 @@ using TRunningStateRun = bool(uintptr_t, uintptr_t);
+ using TShutdownStateRun = bool(uintptr_t, uintptr_t);
+ using TSetLoadingState = uintptr_t(uintptr_t, int);
+ using TTweakDBLoad = uint64_t(uintptr_t, uintptr_t);
++using TTweakDBLoad25 = uint64_t(uintptr_t, uintptr_t, uintptr_t);
+ using TTranslateBytecode = void(uintptr_t, uintptr_t);
+ using TPlayerSpawned = uint64_t(uint64_t, uint64_t, uint64_t, uint64_t);
+ 
+@@ -72,6 +73,7 @@ protected:
+     static TDBID* HookTDBIDCtorDerive(TDBID* apBase, TDBID* apThis, const char* acpName);
+     static uintptr_t HookSetLoadingState(uintptr_t aThis, int aState);
+     static uint64_t HookTweakDBLoad(uintptr_t aThis, uintptr_t aParam);
++    static uint64_t HookTweakDBLoad25(uintptr_t aThis, uintptr_t aParam, uintptr_t aContext);
+     static void HookTranslateBytecode(uintptr_t aBinder, uintptr_t aData);
+     static uint64_t HookPlayerSpawned(uint64_t a1, uint64_t a2, uint64_t a3, uint64_t a4);
+ 
+@@ -90,12 +92,14 @@ private:
+     TTDBIDCtorDerive* m_realTDBIDCtorDerive{nullptr};
+     TSetLoadingState* m_realSetLoadingState{nullptr};
+     TTweakDBLoad* m_realTweakDBLoad{nullptr};
++    TTweakDBLoad25* m_realTweakDBLoad25{nullptr};
+     TTranslateBytecode* m_realTranslateBytecode{nullptr};
+     TPlayerSpawned* m_realPlayerSpawned{nullptr};
+ 
+     Scripting m_scripting;
+ 
+     bool m_initialized{false};
++    bool m_postInitPending{false};
+     bool m_drawBlocked{false};
+     bool m_reload{false};
+ 
+diff --git a/src/scripting/LuaVM_Hooks.cpp b/src/scripting/LuaVM_Hooks.cpp
+index e97f200..f766943 100644
+--- a/src/scripting/LuaVM_Hooks.cpp
++++ b/src/scripting/LuaVM_Hooks.cpp
+@@ -344,6 +344,15 @@ uint64_t LuaVM::HookTweakDBLoad(uintptr_t aThis, uintptr_t aParam)
+     return ret;
+ }
+ 
++uint64_t LuaVM::HookTweakDBLoad25(uintptr_t aThis, uintptr_t aParam, uintptr_t aContext)
++{
++    const auto ret = s_vm->m_realTweakDBLoad25(aThis, aParam, aContext);
++    // The 2.5 LoadOptimized disassembly still increments the tracking byte at this+0x160.
++    reinterpret_cast<RED4ext::TweakDB*>(aThis)->unk160 = 0;
++    s_vm->PostInitializeTweakDB();
++    return ret;
++}
++
+ void LuaVM::Hook()
+ {
+     s_vm = this;
+@@ -465,7 +474,10 @@ void LuaVM::Hook()
+ 
+         if (pLocation)
+         {
+-            if (MH_CreateHook(pLocation, reinterpret_cast<LPVOID>(HookTweakDBLoad), reinterpret_cast<void**>(&m_realTweakDBLoad)) != MH_OK || MH_EnableHook(pLocation) != MH_OK)
++            const bool local25 = CETLocal25::IsVerifiedBuild();
++            const auto hook = local25 ? reinterpret_cast<LPVOID>(HookTweakDBLoad25) : reinterpret_cast<LPVOID>(HookTweakDBLoad);
++            const auto original = local25 ? reinterpret_cast<void**>(&m_realTweakDBLoad25) : reinterpret_cast<void**>(&m_realTweakDBLoad);
++            if (MH_CreateHook(pLocation, hook, original) != MH_OK || MH_EnableHook(pLocation) != MH_OK)
+                 Log::Error("Could not hook CScript::TweakDBLoad function!");
+             else
+             {
