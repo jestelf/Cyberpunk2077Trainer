@@ -26,7 +26,7 @@ if ($LASTEXITCODE -ne 0) { throw 'Icon generation failed' }
 & $csc /nologo /codepage:65001 /target:winexe /platform:x64 /optimize+ "/out:$distDir\Cyberpunk2077Trainer.exe" `
   "/win32icon:$projectRoot\assets\icon.ico" "/win32manifest:$projectRoot\src\app.manifest" `
   "/resource:$projectRoot\assets\icon.png,icon.png" /r:System.Windows.Forms.dll /r:System.Drawing.dll /r:System.IO.Compression.dll `
-  "$projectRoot\src\Shell.cs" "$projectRoot\src\Link.cs" "$projectRoot\src\Game.cs" "$projectRoot\src\Bindings.cs" "$projectRoot\src\Tools.cs" "$projectRoot\src\CyberwareSlots.cs" "$projectRoot\src\VehicleEditor.cs"
+  "$projectRoot\src\Shell.cs" "$projectRoot\src\Link.cs" "$projectRoot\src\Game.cs" "$projectRoot\src\Bindings.cs" "$projectRoot\src\Tools.cs" "$projectRoot\src\CyberwareSlots.cs" "$projectRoot\src\VehicleEditor.cs" "$projectRoot\src\AutodriveEditor.cs"
 if ($LASTEXITCODE -ne 0) { throw 'UI build failed / Ошибка сборки интерфейса' }
 Copy-Item -LiteralPath "$projectRoot\mod" -Destination $distDir -Recurse
 New-Item -ItemType Directory -Force "$distDir\mod\red4ext\plugins\CheatKit" | Out-Null
@@ -40,7 +40,7 @@ foreach ($document in 'README.md','Install.ps1','Setup.ps1','INSTALL.cmd','UNINS
   Copy-Item -LiteralPath "$projectRoot\$document" -Destination "$distDir\$document"
 }
 Copy-Item -LiteralPath "$projectRoot\licenses" -Destination $distDir -Recurse
-foreach ($folder in 'assets','ports','tools') {
+foreach ($folder in 'assets','ports','tools','docs') {
   Copy-Item -LiteralPath "$projectRoot\$folder" -Destination $distDir -Recurse
 }
 $manifest = Get-ChildItem -LiteralPath $distDir -Recurse -File | Sort-Object FullName | ForEach-Object {

@@ -1,4 +1,5 @@
 local ready = false
+local autodrive = require("autodrive")
 local elapsed = 0
 local blinkDistance = 60
 local flightSpeed = 10
@@ -36,12 +37,14 @@ toggles.dialogue_timer = true
 toggles.melee_combo = true
 for _, key in ipairs({"god", "stamina", "items_ammo", "items_no_decrease", "heal_cd", "grenade_cd", "launcher_cd", "no_reload", "accuracy", "no_recoil", "one_hit", "stealth", "unlimited_xp", "unlimited_cred", "cyber_capacity", "ram", "breach_timer", "components", "qh_components", "multijump", "freeze_time", "noclip", "auto_locks", "vehicle_god", "sandevistan", "sandy_freeze", "free_craft", "free_upgrade", "no_cyberpsychosis", "infinite_air", "fall", "oxygen", "massive_carry", "blink", "blackwall", "skills_cd", "quickhack_cd", "device_off", "device_friendly", "quickhack_fast", "netrunner_stealth", "dialogue_lifepath", "dialogue_skills", "instant_scan"}) do toggles[key] = true end
 local params = {
+  autodrive_mode={0,4},autodrive_limit={60,300},
   xp_mul={1,10000}, cred_mul={1,10000}, skill_mul={1,10000},
   game_speed={0.01,10}, carry={0,10000000}, speed={0.1,50}, jump={0.1,100}, fire_rate={0.1,20},
   blink_distance={2,500}, flight_speed={1,500}, blackwall_targets={1,50}, blackwall_range={5,500}, dash_strength={0.25,10},
   vehicle_speed={20,600},vehicle_reverse={5,150},vehicle_accel={0.25,30},vehicle_brake={0.25,15},vehicle_turn={0,360},vehicle_grip={0,60},vehicle_downforce={0,5}
 }
 local paramDefaults = {xp_mul=1,cred_mul=1,skill_mul=1,game_speed=1,carry=0,speed=1,jump=1,fire_rate=1,blink_distance=60,flight_speed=10,blackwall_targets=5,blackwall_range=75,dash_strength=1,
+  autodrive_mode=0,autodrive_limit=180,
   vehicle_speed=250,vehicle_reverse=40,vehicle_accel=2,vehicle_brake=1.5,vehicle_turn=120,vehicle_grip=25,vehicle_downforce=0}
 local proficiencies = {level="Level", streetlevel="StreetCred", headhunter="CoolSkill", netrunner="IntelligenceSkill", shinobi="ReflexesSkill", solo="StrengthSkill", engineer="TechnicalAbilitySkill"}
 local points = {attribute_points="Attribute", perk_points="Primary", relic_points="Espionage"}
@@ -116,6 +119,7 @@ local function execute(command)
   if command == "ping" then return runtimeFault and "err E_RUNTIME" or "ok" end
   local s = state()
   if command == "reset" then
+    if not autodrive.release(s) then return "err E_AUTODRIVE_RESTORE" end
     desiredToggles = {}
     desiredParams = {}
     appliedState, appliedGeneration = nil, nil
@@ -166,6 +170,7 @@ local function execute(command)
   end
   if kind == "set" and #args == 3 and toggles[key] and (raw == "0" or raw == "1") then
     local enabled = raw == "1"
+    if key == "ultra_autodrive" and not enabled and not autodrive.release(s) then return "err E_AUTODRIVE_RESTORE" end
     if enabled and (key == "auto_breach" or key == "breach_timer") then
       if not Game.CK_BreachConfigure or not Game.CK_BreachConfigure(key == "auto_breach" or s:Has(CName.new("auto_breach")), key == "breach_timer" or s:Has(CName.new("breach_timer"))) then return "err E_BREACH_NATIVE" end
     end
@@ -179,7 +184,7 @@ local function execute(command)
     return "ok"
   end
   if kind == "mul" and #args == 3 and params[key] then
-    local v = number(raw, params[key][1], params[key][2], false)
+    local v = number(raw, params[key][1], params[key][2], key == "autodrive_mode")
     if not v then return "err E_VALUE" end
     if key == "blink_distance" then blinkDistance = v
     elseif key == "flight_speed" then flightSpeed = v
@@ -272,7 +277,10 @@ local function updateRuntime(dt)
       for key in pairs(desiredToggles) do
         if not s:Has(CName.new(key)) then s:Set(CName.new(key), true) end
       end
+      autodrive.tick(s, Game.GetPlayer())
+      s:AutodriveTick()
     else
+      autodrive.release(nil)
       appliedState, appliedGeneration = nil, nil
     end
   end
@@ -322,4 +330,5 @@ end)
 
 registerForEvent("onShutdown", function()
   if ready then pcall(execute, "reset") end
+  pcall(function() autodrive.release(state()) end)
 end)

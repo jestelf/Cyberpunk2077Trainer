@@ -1,4 +1,4 @@
-# Cyberpunk 2077 Trainer 0.3.20
+# Cyberpunk 2077 Trainer 0.3.21
 
 **Русский** · [English](#english)
 
@@ -8,7 +8,7 @@
 
 ## Установка и запуск
 
-1. Скачайте ZIP **FullKit** из [релиза v0.3.20](https://github.com/jestelf/Cyberpunk2077Trainer/releases/tag/v0.3.20), распакуйте в отдельную папку.
+1. Скачайте ZIP **FullKit** из [релиза v0.3.21](https://github.com/jestelf/Cyberpunk2077Trainer/releases/tag/v0.3.21), распакуйте в отдельную папку.
 2. Закройте игру, лаунчер и трейнер. Запустите `INSTALL.cmd`, выберите корневую папку Cyberpunk 2077, в которой находятся `bin` и `r6`.
 3. Запустите игру и загрузите сохранение. При первом запросе CET назначьте клавишу его оверлея. Запустите `Cyberpunk2077Trainer.exe` из распакованного комплекта.
 4. Дождитесь подключения, включайте нужные функции. `Ctrl+F12` отключает временные эффекты. Клавиши меняются прямо в строках функций; RU/EN переключаются сверху.
@@ -40,17 +40,19 @@ d36e74c47592e9c656ae250078cb40b2be63c782af5bfbeff2280d43e653fab4
 
 Noclip: WASD по направлению камеры, Space/Ctrl вверх/вниз, Shift быстрее. Чёрный заслон: средняя кнопка мыши включает режим пустых рук, ЛКМ атакует. Сандевистан требует установленного импланта. Прочие сочетания и ограничения видны в интерфейсе и справке.
 
-**Ультра автодрайв к маркеру:** задайте предел в редакторе транспорта, включите отдельный переключатель и запустите штатный автодрайв на G. Скорость передаётся контроллеру ИИ, ручное ускорение не навязывается. ИИ продолжает тормозить на поворотах, перед препятствиями и у цели. Свободная езда без цели и такси Деламейна сохраняют штатный режим. «Состояние ультра автодрайва» показывает, применён ли потолок. Выключение усиления завершает текущую поездку, чтобы убрать нативное переопределение; G снова запускает обычный автодрайв.
+**Адаптивный автодрайв:** Транспорт → Профили и расчёты автодрайва → Штатный / Спокойный 120 / Дорожный 180 / Быстрый 240 / Максимальный 300. Усиленные профили допускают настройку до 300 км/ч. Примените профиль перед G: проверка тормозов, плавный рост скорости, расширенный обзор штатного ИИ, снижение скорости перед препятствием, поворотом и целью. Фактический потолок зависит от замедления и доступной опоры. «Штатный» сохраняет параметры игры. Смена настроек/отключение завершает поездку, G запускает новую. [Параметры, формулы и ограничения](docs/autodrive.md).
 
-В 0.3.20 телепорт использует маркер текущей цели задания, а при нескольких резервных координатах выбирает ближайшую. Личный маркер ищется в радиусе 8 м, задание — предпочтительно за 20 м, максимум 24 м; другой этаж с разницей высоты от 8 м не считается прибытием. Положение движущегося маркера обновляется. Убрано завершение на площадках за 60–90 м.
+![Редактор автодрайва RU](assets/autodrive_ru.png)
+
+Телепорт использует маркер текущей цели задания, а при нескольких резервных координатах выбирает ближайшую. Личный маркер ищется в радиусе 8 м, задание — предпочтительно за 20 м, максимум 24 м; другой этаж с разницей высоты от 8 м не считается прибытием. Положение движущегося маркера обновляется. Убрано завершение на площадках за 60–90 м.
 
 ItemSpawner получает каталог из вашей игры при первом открытии после загрузки сохранения; «Обновить список» повторяет чтение. Названия берутся на языке игры, при недоступной локализации используется ID. Каталог сохраняется локально, переключение RU/EN не переводит названия предметов. Публичный пакет использует значки категорий; игровые картинки и выгрузки не распространяются. Можно использовать свой локальный `catalog/catalog.tsv` и иконки в `%LOCALAPPDATA%\Cyberpunk2077Trainer`.
 
 ## Что проверено и ограничения
 
-Владелец подтвердил работоспособность основных существующих функций и попросил убрать устаревшие пометки «не проверено»; вместо них в интерфейсе стоят описания действий. Последний конкретный отчёт: телепорт оставлял далеко от цели, а штатный автодрайв ехал медленно. Эти проблемы адресованы в 0.3.20. Новое ограничение расстояния, ультра автодрайв и чтение каталога из игры проверены локально; результат именно этих новых изменений в игре ещё ожидается. Подробнее: [VERIFY.md](VERIFY.md).
+Владелец подтвердил работоспособность основных существующих функций и попросил убрать устаревшие пометки «не проверено»; вместо них в интерфейсе стоят описания действий. Последний конкретный отчёт: телепорт оставлял далеко от цели, а штатный автодрайв ехал медленно. Телепорт уточнён в 0.3.20; в 0.3.21 автодрайв переработан с учётом торможения и прогноза дороги. Новое ограничение расстояния, ультра автодрайв и чтение каталога из игры проверены локально; результат именно этих новых изменений в игре ещё ожидается. Подробнее: [VERIFY.md](VERIFY.md).
 
-Локально проверены компиляция C#/C++, 14 REDscript без ошибок/предупреждений, 297 проверок диспетчера, 28 контроллера перемещения, 16 ультра автодрайва, чтение каталога, установщик и RU/EN. API/физика/стриминг в фикстурах имитируются. Релиз помечен предварительным из-за новых изменений и экспериментальной адаптации CET.
+Локально проверены компиляция C#/C++, 16 REDscript без ошибок/предупреждений, 309 проверок диспетчера, 28 контроллера перемещения, 142 проверки модели, 21 нативного диспетчера и 19 настройки профилей автодрайва; сценарии адаптивного контроллера, чтение каталога, установщик и RU/EN. API/физика/стриминг в фикстурах имитируются. Релиз помечен предварительным из-за новых изменений и экспериментальной адаптации CET.
 
 Сделайте отдельное сохранение перед использованием. Деньги, предметы, рецепты, навыки, улучшения и внешность могут сохраниться: отключение их не отменяет. Тело/голос влияют на сюжетные и романтические проверки. Телепорт требует доступной поверхности: перемещается по поддерживаемым участкам, может остановиться на последней безопасной точке; закрытые интерьеры и неподгруженные маршруты не гарантируются. Завершите или отмените перенос до сохранения. Старый розыск после выключения игнорирования полиции не возвращается. Одновременное оружие рук не поддерживается. Защита/таймеры/скриптовые сцены имеют ограничения, описанные в интерфейсе.
 
@@ -81,7 +83,7 @@ Experimental CheatKit trainer for single-player Cyberpunk 2077 on Windows x64. R
 
 ### Install and run
 
-1. Download the **FullKit ZIP** from [v0.3.20](https://github.com/jestelf/Cyberpunk2077Trainer/releases/tag/v0.3.20) and extract it to a separate folder.
+1. Download the **FullKit ZIP** from [v0.3.21](https://github.com/jestelf/Cyberpunk2077Trainer/releases/tag/v0.3.21) and extract it to a separate folder.
 2. Close the game, launcher and trainer. Run `INSTALL.cmd` and choose the game root containing `bin` and `r6`.
 3. Start the game, load a save, assign a CET overlay key if prompted, then open `Cyberpunk2077Trainer.exe` from the extracted kit.
 4. Wait for connection. Change bindings beside each feature; select RU/EN at the top. `Ctrl+F12` resets temporary effects.
@@ -102,9 +104,11 @@ ItemSpawner reads records from your running game on first opening after loading 
 
 ### Verification and limits
 
-The owner confirmed that the main existing features work and requested replacing obsolete untested labels with useful descriptions. Their latest specific reports concerned distant teleport landings and slow native autodrive, addressed in 0.3.20. New travel bounds, Ultra autodrive and live catalog reading are locally tested; gameplay results for those new changes are pending. Checks cover C#/C++, 14 REDscript files with no errors/warnings, 297 dispatcher checks, 28 travel-controller and 16 autodrive fixtures, catalog/installer tests and RU/EN. Native APIs, physics and streaming are mocked. See [VERIFY.md](VERIFY.md). This is a prerelease for the new changes and experimental CET adaptation.
+The owner confirmed that the main existing features work and requested replacing obsolete untested labels with useful descriptions. Their latest specific reports concerned distant teleport landings and slow native autodrive, addressed by travel fixes in0.3.20 and braking-aware adaptive driving in0.3.21. New travel bounds, Ultra autodrive and live catalog reading are locally tested; gameplay results for those new changes are pending. Checks cover C#/C++, 16 REDscript files with no errors/warnings, 309 dispatcher checks, 28 travel-controller and 142 model, 21 native-adapter and19 profile-configuration checks, plus adaptive-controller scenarios, catalog/installer tests and RU/EN. Native APIs, physics and streaming are mocked. See [VERIFY.md](VERIFY.md). This is a prerelease for the new changes and experimental CET adaptation.
 
-**Ultra autodrive to waypoint:** set a limit in the vehicle editor, enable the separate toggle and start native G autodrive. The limit goes to the AI controller without forced manual acceleration. AI keeps braking for turns, obstacles and the destination. Destination-free roaming and Delamain taxis keep native behavior. The status action reports whether the ceiling was applied. Disabling ends the enhanced trip to clear its native override; G restarts normal driving.
+**Adaptive autodrive:** Vehicles → Autodrive profiles and calculations → Native / Relaxed120 / Road180 / Fast240 / Maximum300. Enhanced profiles allow ceilings up to300km/h. Apply before G: brake check, gradual acceleration, extended native AI vision, speed reduction for obstacles, bends and destination. Actual ceilings depend on braking and available ground. Native preserves game settings. Changing settings/disabling ends the trip; G starts another. [Parameters, formulas and limits](docs/autodrive.md).
+
+![Autodrive editor EN](assets/autodrive_en.png)
 
 Travel now resolves the tracked objective marker, choosing the nearest fallback coordinate when necessary. Personal waypoints search within 8 m; objectives prefer 20 m and at most 24 m, rejecting floor differences of 8 m or more. Moving markers are refreshed. Landings 60–90 m away are no longer reported as completion.
 

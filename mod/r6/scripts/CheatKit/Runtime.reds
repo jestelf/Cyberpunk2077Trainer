@@ -11,6 +11,28 @@ struct CKInventoryTarget {
 
 class CheatKitState extends ScriptableSystem {
   public let ckAutodriveDelegates: array<wref<AIDriveCommandsDelegate>>;
+  public let autodriveMode: Int32;
+  public let autodriveLimit: Float = 180.0;
+  public let autodrivePrepared: Bool;
+  public let autodriveRecord: TweakDBID;
+  public let autodriveBaseDecel: Float = 3.5;
+  public let autodriveConfigStatus: CName = n"AD_STOCK";
+  public let autodriveSafety: ref<CheatKitAutodriveSafety>;
+
+  public final func AutodrivePolicy(ready: Bool, record: TweakDBID, deceleration: Float, status: CName) {
+    if (!ready || this.autodriveRecord != record) && IsDefined(this.autodriveSafety) { this.autodriveSafety.Release(); }
+    this.autodrivePrepared = ready;
+    this.autodriveRecord = record;
+    this.autodriveBaseDecel = ClampF(deceleration, 0.5, 7.0);
+    this.autodriveConfigStatus = status;
+  }
+
+  public final func AutodriveTick() {
+    if this.Has(n"ultra_autodrive") && this.autodriveMode > 0 && this.autodrivePrepared {
+      if !IsDefined(this.autodriveSafety) { this.autodriveSafety = new CheatKitAutodriveSafety(); }
+      this.autodriveSafety.Tick(this);
+    } else if IsDefined(this.autodriveSafety) { this.autodriveSafety.Release(); }
+  }
   public let travel: ref<CheatKitTravel>;
   public let travelSerial: Int32;
   public final func TravelStatus() -> String {
@@ -527,6 +549,18 @@ class CheatKitState extends ScriptableSystem {
 
   public final func Parameter(key: CName, value: Float) -> Bool {
     let id: StatsObjectID;
+    if Equals(key, n"autodrive_mode") {
+      if value < 0.0 || value > 4.0 || value != Cast<Float>(Cast<Int32>(value)) { return false; }
+      if this.autodriveMode != Cast<Int32>(value) { CheatKitAutodrive.Release(this); this.autodrivePrepared = false; }
+      this.autodriveMode = Cast<Int32>(value);
+      return true;
+    }
+    if Equals(key, n"autodrive_limit") {
+      if value < 60.0 || value > 300.0 { return false; }
+      if this.autodriveLimit != value { CheatKitAutodrive.Release(this); this.autodrivePrepared = false; }
+      this.autodriveLimit = value;
+      return true;
+    }
     if Equals(key, n"vehicle_speed") || Equals(key, n"vehicle_reverse") || Equals(key, n"vehicle_accel") || Equals(key, n"vehicle_brake") || Equals(key, n"vehicle_turn") || Equals(key, n"vehicle_grip") || Equals(key, n"vehicle_downforce") {
       if !IsDefined(this.drive) { this.drive = new CheatKitDriveController(); }
       return this.drive.Parameter(key, value);
@@ -866,6 +900,10 @@ class CheatKitState extends ScriptableSystem {
     this.skillMul = 1.0;
     this.fireRate = 1.0;
     this.dashStrength = 1.0;
+    this.autodriveMode = 0;
+    this.autodriveLimit = 180.0;
+    this.autodrivePrepared = false;
+    this.autodriveConfigStatus = n"AD_STOCK";
     this.blackwallTargets = 5;
     this.blackwallRange = 75.0;
     this.blackwallHeld = false;
