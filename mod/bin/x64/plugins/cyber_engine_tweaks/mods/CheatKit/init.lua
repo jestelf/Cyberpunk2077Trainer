@@ -25,6 +25,7 @@ local function ammoFloor(enable)
   return true
 end
 local toggles = {}
+toggles.ultra_autodrive = true
 toggles.police_ignore = true
 toggles.auto_breach = true
 toggles.ghost = true
@@ -190,6 +191,7 @@ local function execute(command)
     if key == "vitals" then return "ok " .. CheatKitAPI.Vitals() end
     if key == "vehicle" then return "ok " .. s:DriveStatus() end
     if key == "travel" then return "ok " .. s:TravelStatus() end
+    if key == "autodrive" then return "ok " .. CheatKitAutodrive.Diagnostic(s) end
     local data = CheatKitAPI.Development()
     if key == "money" then return "ok " .. tostring(Game.GetTransactionSystem():GetItemQuantity(player, ItemID.FromTDBID(TweakDBID.new("Items.money")))) end
     if not data then return "err E_NO_DEVELOPMENT" end

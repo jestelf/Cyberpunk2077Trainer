@@ -10,6 +10,7 @@ struct CKInventoryTarget {
 }
 
 class CheatKitState extends ScriptableSystem {
+  public let ckAutodriveDelegates: array<wref<AIDriveCommandsDelegate>>;
   public let travel: ref<CheatKitTravel>;
   public let travelSerial: Int32;
   public final func TravelStatus() -> String {
@@ -93,6 +94,7 @@ class CheatKitState extends ScriptableSystem {
   }
 
   public func OnDetach() {
+    CheatKitAutodrive.Release(this);
     this.CancelTravel();
     if IsDefined(this.drive) { this.drive.Release(); this.drive = null; }
     if IsDefined(this.ckAppearance) { this.ckAppearance.Release(); }
@@ -495,6 +497,9 @@ class CheatKitState extends ScriptableSystem {
         break;
       case n"vehicle_tuning":
         if !on && IsDefined(this.drive) { this.drive.Release(); }
+        break;
+      case n"ultra_autodrive":
+        if !on { CheatKitAutodrive.Release(this); }
         break;
       case n"police_ignore":
         if on { CheatKitPolice.Maintain(this.GetGameInstance()); }
@@ -1406,20 +1411,43 @@ abstract class CheatKitAPI {
 
   public static func QuestTeleport(game: GameInstance) -> Bool {
     let player = GetPlayer(game);
-    let positions: array<Vector3>;
     if !IsDefined(player) { return false; }
     let journal = GameInstance.GetJournalManager(player.GetGame());
     let entry = journal.GetTrackedEntry();
     if !IsDefined(entry) { return CheatKitAPI.Fail("E_NO_QUEST", game); }
-    let maps = GameInstance.GetMappinSystem(player.GetGame());
-    if !maps.GetQuestMappinPositionsByObjective(Cast<Uint32>(journal.GetEntryHash(entry)), positions) || ArraySize(positions) == 0 { return CheatKitAPI.Fail("E_NO_QUEST_POSITION", game); }
-    let pos = Vector4(positions[0].X, positions[0].Y, positions[0].Z, 1.0);
+    let pos: Vector4;
+    let marker: NewMappinID;
+    if !CheatKitAPI.QuestTarget(entry, pos, marker, game) { return CheatKitAPI.Fail("E_NO_QUEST_POSITION", game); }
     let currentPosition = player.GetWorldPosition();
     let delta = currentPosition - pos;
     delta.Z = 0.0;
     if Vector4.Length(delta) < 20.0 && AbsF(currentPosition.Z - pos.Z) < 4.0 { return CheatKitAPI.Fail("E_QUEST_NEARBY", game); }
-    let marker: NewMappinID;
     return CheatKitTravel.Begin(pos, 20.0, marker, false, Cast<Uint32>(journal.GetEntryHash(entry)), game);
+  }
+
+  public static func QuestTarget(entry: wref<JournalEntry>, out position: Vector4, out marker: NewMappinID, game: GameInstance) -> Bool {
+    let journal = GameInstance.GetJournalManager(game);
+    let maps = GameInstance.GetMappinSystem(game);
+    let objective = entry as JournalQuestObjectiveBase;
+    if !IsDefined(objective) { return false; }
+    let displayed = maps.GetMappinFromObjective(journal.GetParentEntry(entry), entry);
+    if IsDefined(displayed) && displayed.IsActive() {
+      position = displayed.GetWorldPosition();
+      marker = displayed.GetNewMappinID();
+      return true;
+    }
+    let positions: array<Vector3>;
+    if !maps.GetQuestMappinPositionsByObjective(Cast<Uint32>(journal.GetEntryHash(entry)), positions) || ArraySize(positions) == 0 { return false; }
+    let player = GetPlayer(game);
+    let best = 1000000.0;
+    let i = 0;
+    while i < ArraySize(positions) {
+      let point = Vector4(positions[i].X, positions[i].Y, positions[i].Z, 1.0);
+      let distance = Vector4.Distance(player.GetWorldPosition(), point);
+      if distance < best { position = point; best = distance; }
+      i += 1;
+    }
+    return best < 1000000.0;
   }
 
   public static func FindLanding(point: Vector4, above: Float, below: Float, out position: Vector4, game: GameInstance) -> Bool {

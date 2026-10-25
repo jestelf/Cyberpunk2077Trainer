@@ -88,6 +88,8 @@ class CheatKitTravel extends IScriptable {
     if GameInstance.GetTimeSystem(game).IsPausedState() || (IsDefined(ui) && ui.GetBool(GetAllBlackboardDefs().UI_System.IsInMenu)) { this.status = n"TRAVEL_PAUSED"; return; }
     let maps = GameInstance.GetMappinSystem(game);
     if this.waypoint && maps.GetManuallyTrackedMappinID() != this.marker { this.Cancel(); return; }
+    let trackedMarker = maps.GetMappin(this.marker);
+    if IsDefined(trackedMarker) && trackedMarker.IsActive() { this.target = trackedMarker.GetWorldPosition(); }
     if this.questHash != 0u {
       let journal = GameInstance.GetJournalManager(game);
       let entry = journal.GetTrackedEntry();
@@ -106,8 +108,10 @@ class CheatKitTravel extends IScriptable {
         this.finalProbe = 0; this.hopProbe = 0; this.failures = 0;
         this.cooldown = 1;
         if this.finalHop {
-          if this.waypoint { state.pendingMarker = this.marker; state.pendingPosition = this.expected; state.pendingTicks = 50; }
-          this.Stop(n"TRAVEL_DONE");
+          if this.remaining <= (this.waypoint ? 9.0 : 25.0) && (this.waypoint || AbsF(current.Z - this.target.Z) < 8.0) {
+            if this.waypoint { state.pendingMarker = this.marker; state.pendingPosition = this.expected; state.pendingTicks = 50; }
+            this.Stop(n"TRAVEL_DONE");
+          } else { this.finalHop = false; this.status = n"TRAVEL_SEARCHING"; }
         } else { this.status = n"TRAVEL_LOADING"; }
       } else {
         this.waitTicks += 1;
@@ -120,14 +124,14 @@ class CheatKitTravel extends IScriptable {
     let destination: Vector4;
     if this.remaining <= 160.0 && this.finalProbe >= 0 {
       let ring = this.finalProbe / 8;
-      let radius = ring == 0 ? this.preferred : ring == 1 ? 8.0 : ring == 2 ? 14.0 : ring == 3 ? 28.0 : ring == 4 ? 40.0 : ring == 5 ? 60.0 : 90.0;
+      let radius = this.waypoint ? (ring == 0 ? 0.0 : Cast<Float>(ring) * 2.0) : (ring == 0 ? 20.0 : ring == 1 ? 16.0 : ring == 2 ? 12.0 : ring == 3 ? 8.0 : ring == 4 ? 24.0 : ring == 5 ? 4.0 : 0.0);
       let finalAngle = Cast<Float>(this.finalProbe % 8) * 0.7853982;
       let offset = Vector4(direction.X * CosF(finalAngle) - direction.Y * SinF(finalAngle), direction.X * SinF(finalAngle) + direction.Y * CosF(finalAngle), 0.0, 0.0);
       let finalSample = this.target + offset * radius;
       this.finalProbe += (radius < 0.1 ? 8 : 1);
       this.status = n"TRAVEL_SEARCHING";
-      if this.TryPoint(finalSample, current.Z, destination, game) && (this.waypoint || AbsF(destination.Z - this.target.Z) < 40.0) && this.Move(destination, true, game) { return; }
-      if this.finalProbe >= 56 { this.finalProbe = -1; }
+      if this.TryPoint(finalSample, current.Z, destination, game) && (this.waypoint || AbsF(destination.Z - this.target.Z) < 8.0) && this.Move(destination, true, game) { return; }
+      if this.finalProbe >= (this.waypoint ? 40 : 56) { this.finalProbe = -1; }
       return;
     }
     if this.remaining < this.preferred + 8.0 { this.Stop(n"TRAVEL_NO_ROUTE"); return; }
